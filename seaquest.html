@@ -1,0 +1,1769 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Seaquest - Atari 2600 (HTML5)</title>
+<style>
+  * {
+    margin: 0; padding: 0; box-sizing: border-box;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html, body {
+    width: 100%; height: 100%;
+    background: #000;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+    color: #fff;
+    position: fixed;
+    inset: 0;
+  }
+  body {
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+  #gameContainer {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    flex: 1;
+  }
+  #canvasWrap {
+    position: relative;
+    /* Teljes képernyő kitöltés – nincs fekete sáv */
+    width: 100%;
+    height: 100%;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    background: #000;
+  }
+  #controls {
+    display: none;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 20;
+  }
+  #controls.visible { display: block; }
+
+  .btn {
+    position: absolute;
+    background: rgba(255,255,255,0.2);
+    border: 2px solid rgba(255,255,255,0.5);
+    border-radius: 50%;
+    color: #fff;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  }
+  .btn:active, .btn.active {
+    background: rgba(255,255,255,0.5);
+  }
+
+  /* D-pad – nagyobb, stabil keresztes elrendezés */
+  #dpad {
+    position: absolute;
+    left: 3%;
+    bottom: 3%;
+    width: 168px;
+    height: 168px;
+    pointer-events: auto;
+    touch-action: none;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    -webkit-touch-callout: none !important;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-drag: none;
+    caret-color: transparent;
+  }
+  #dpad * {
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    -webkit-touch-callout: none !important;
+    pointer-events: none;
+  }
+  #btnUp, #btnDown, #btnLeft, #btnRight {
+    width: 58px;
+    height: 58px;
+    font-size: 0; /* nincs szöveg → nincs mit kijelölni */
+    pointer-events: none;
+    color: transparent;
+  }
+  /* CSS nyíl (háromszög) – nem szöveg */
+  #btnUp::after, #btnDown::after, #btnLeft::after, #btnRight::after {
+    content: '';
+    display: block;
+    width: 0;
+    height: 0;
+    border-style: solid;
+  }
+  #btnUp::after {
+    border-width: 0 10px 14px 10px;
+    border-color: transparent transparent #fff transparent;
+  }
+  #btnDown::after {
+    border-width: 14px 10px 0 10px;
+    border-color: #fff transparent transparent transparent;
+  }
+  #btnLeft::after {
+    border-width: 10px 14px 10px 0;
+    border-color: transparent #fff transparent transparent;
+  }
+  #btnRight::after {
+    border-width: 10px 0 10px 14px;
+    border-color: transparent transparent transparent #fff;
+  }
+  #btnUp    { left: 55px; top: 0; }
+  #btnDown  { left: 55px; bottom: 0; }
+  #btnLeft  { left: 0; top: 55px; }
+  #btnRight { right: 0; top: 55px; }
+
+  #btnFire {
+    width: 88px;
+    height: 88px;
+    right: 4%;
+    bottom: 6%;
+    background: rgba(255,50,50,0.4);
+    border-color: rgba(255,120,120,0.75);
+    padding: 0;
+    overflow: hidden;
+  }
+  #btnFire canvas {
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    pointer-events: none;
+  }
+  #btnFire:active, #btnFire.active {
+    background: rgba(255,50,50,0.7);
+  }
+
+  #overlay {
+    position: absolute;
+    inset: 0;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    z-index: 50;
+    padding: 16px;
+  }
+  #overlay h1 {
+    font-size: clamp(28px, 8vw, 52px);
+    color: #ffcc00;
+    text-shadow: 2px 2px 0 #000;
+    margin-bottom: 10px;
+  }
+  #overlay p {
+    font-size: clamp(13px, 3.5vw, 17px);
+    margin: 6px 0;
+    max-width: 90%;
+    line-height: 1.45;
+  }
+  #overlay .start-btn {
+    margin-top: 22px;
+    padding: 14px 40px;
+    font-size: clamp(18px, 5vw, 24px);
+    background: #2266aa;
+    border: 3px solid #fff;
+    color: #fff;
+    cursor: pointer;
+    font-family: inherit;
+    border-radius: 4px;
+  }
+  #clearStatsPanel {
+    display: none;
+    position: fixed;
+    left: 50%;
+    top: 45%;
+    transform: translateX(-50%);
+    z-index: 100;
+    padding: 14px 18px;
+    background: rgba(20, 20, 30, 0.92);
+    border: 2px solid rgba(255, 180, 180, 0.7);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.55);
+    text-align: center;
+    pointer-events: auto;
+    animation: floaty 2.4s ease-in-out infinite;
+  }
+  #clearStatsPanel.show { display: block; }
+  #clearStatsBtn {
+    padding: 10px 18px;
+    font-size: clamp(12px, 3vw, 15px);
+    background: rgba(180,40,40,0.9);
+    border: 2px solid #faa;
+    color: #fff;
+    cursor: pointer;
+    font-family: inherit;
+    border-radius: 6px;
+  }
+  @keyframes floaty {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(-8px); }
+  }
+</style>
+</head>
+<body>
+<div id="gameContainer">
+  <div id="canvasWrap">
+    <canvas id="c" width="320" height="240"></canvas>
+
+    <div id="controls">
+      <div id="dpad">
+        <div class="btn" id="btnUp" aria-hidden="true"></div>
+        <div class="btn" id="btnDown" aria-hidden="true"></div>
+        <div class="btn" id="btnLeft" aria-hidden="true"></div>
+        <div class="btn" id="btnRight" aria-hidden="true"></div>
+      </div>
+      <div class="btn" id="btnFire"><canvas id="fireLabel" width="44" height="44"></canvas></div>
+    </div>
+
+    <div id="overlay">
+      <h1>SEAQUEST</h1>
+      <p>Activision · Atari 2600 · 1983</p>
+      <p>Mentsd meg a búvárokat!<br>6 búvár számára van hely, figyelj az oxigénre!</p>
+      <p style="margin-top:12px;font-size:clamp(12px,3vw,15px);opacity:0.85">
+        Irányítás: nyilak / WASD / virtuális gombok<br>
+        Lövés: SPACE / TŰZ
+      </p>
+      <p id="recordLine" style="margin-top:10px;font-size:clamp(12px,3vw,15px);color:#ffcc00"></p>
+      <button class="start-btn" id="startBtn">ÚJ JÁTÉK</button>
+    </div>
+  </div>
+</div>
+<div id="clearStatsPanel">
+  <button type="button" id="clearStatsBtn">statisztika törlése</button>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = 320, H = 240;
+const controlsEl = document.getElementById('controls');
+
+function isTouchDevice() {
+  return ('ontouchstart' in window) ||
+         (navigator.maxTouchPoints > 0) ||
+         window.matchMedia('(pointer: coarse)').matches;
+}
+// Gombok csak játék közben látszanak (startGame-ben kapcsoljuk be)
+
+// Pixeles TŰZ felirat (ugyanaz a stílus, mint az OXIGÉN / pontszám)
+(function drawFireLabel() {
+  const fc = document.getElementById('fireLabel');
+  if (!fc) return;
+  const fctx = fc.getContext('2d');
+  fctx.imageSmoothingEnabled = false;
+  fctx.clearRect(0, 0, 44, 44);
+  fctx.fillStyle = '#fff';
+  fctx.font = '10px monospace';
+  fctx.textAlign = 'center';
+  fctx.textBaseline = 'middle';
+  fctx.fillText('TŰZ', 22, 22);
+})();
+
+// Hang
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function beep(freq, dur, type='square', vol=0.08) {
+  if (!audioCtx) return;
+  try {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  } catch(e) {}
+}
+// Zaj buffer (robbanás, lövés)
+function noiseBurst(dur, vol, filterFreq) {
+  if (!audioCtx) return;
+  try {
+    const len = Math.floor(audioCtx.sampleRate * dur);
+    const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(vol, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    if (filterFreq) {
+      const f = audioCtx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = filterFreq;
+      src.connect(f); f.connect(g);
+    } else {
+      src.connect(g);
+    }
+    g.connect(audioCtx.destination);
+    src.start();
+  } catch(e) {}
+}
+// Lövés – rövid „bumm” jellegű hang
+function playShoot() {
+  if (!audioCtx) return;
+  try {
+    const t = audioCtx.currentTime;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(280, t);
+    o.frequency.exponentialRampToValueAtTime(60, t + 0.12);
+    g.gain.setValueAtTime(0.12, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(t); o.stop(t + 0.14);
+    noiseBurst(0.06, 0.06, 1200);
+  } catch(e) {}
+}
+// Cápa / hal találat – hangos pukkanás
+function playHitShark() {
+  if (!audioCtx) return;
+  try {
+    const t = audioCtx.currentTime;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'square';
+    o.frequency.setValueAtTime(500, t);
+    o.frequency.exponentialRampToValueAtTime(60, t + 0.15);
+    g.gain.setValueAtTime(0.22, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(t); o.stop(t + 0.16);
+    noiseBurst(0.1, 0.18, 900);
+  } catch(e) {}
+}
+// Ellenséges sub találat – robbanás
+function playHitSub() {
+  if (!audioCtx) return;
+  try {
+    const t = audioCtx.currentTime;
+    noiseBurst(0.3, 0.2, 500);
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(140, t);
+    o.frequency.exponentialRampToValueAtTime(25, t + 0.35);
+    g.gain.setValueAtTime(0.2, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.36);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(t); o.stop(t + 0.36);
+  } catch(e) {}
+}
+function playHit() { playHitShark(); }
+function playCollect() {
+  beep(520, 0.08, 'square', 0.1);
+  setTimeout(() => beep(780, 0.1, 'square', 0.1), 70);
+}
+// Oxigén feltöltés – hangosabb, vékony → mély
+function playOxygenFill(progress) {
+  ensureAudio();
+  if (!audioCtx) return;
+  try {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const t = audioCtx.currentTime;
+    const freq = 950 - Math.max(0, Math.min(1, progress)) * 600;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'sine';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.16, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(t); o.stop(t + 0.1);
+  } catch(e) {}
+}
+function playSurface() {
+  beep(300, 0.12, 'triangle', 0.07);
+  setTimeout(() => beep(200, 0.18, 'triangle', 0.07), 100);
+}
+function playAlarm() {
+  beep(880, 0.12, 'square', 0.09);
+  setTimeout(() => beep(660, 0.12, 'square', 0.09), 130);
+}
+// 6 búvár megvan – erős hangjelzés
+function playFullDivers() {
+  beep(660, 0.12, 'square', 0.14);
+  setTimeout(() => beep(880, 0.12, 'square', 0.14), 100);
+  setTimeout(() => beep(1100, 0.18, 'square', 0.14), 200);
+}
+// Ünnepélyes „búvárok megmentve” hang
+function playRescueFanfare() {
+  ensureAudio();
+  const notes = [523, 659, 784, 1047, 784, 1047, 1319];
+  notes.forEach((f, i) => setTimeout(() => beep(f, 0.18, 'square', 0.12), i * 110));
+  setTimeout(() => beep(1568, 0.35, 'square', 0.14), notes.length * 110);
+}
+function playExplode() {
+  noiseBurst(0.35, 0.16, 400);
+  beep(55, 0.4, 'sawtooth', 0.12);
+}
+function playBonus() {
+  [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(f, 0.12, 'square', 0.06), i * 80));
+}
+
+// Lokális rekord
+const HS_KEY = 'seaquest_highscore';
+function getHighScore() {
+  try { return parseInt(localStorage.getItem(HS_KEY) || '0', 10) || 0; } catch(e) { return 0; }
+}
+function setHighScore(v) {
+  try { localStorage.setItem(HS_KEY, String(v)); } catch(e) {}
+}
+function updateRecordLine() {
+  const el = document.getElementById('recordLine');
+  if (el) el.textContent = 'Aktuális rekord: ' + getHighScore();
+}
+updateRecordLine();
+
+// Állapot
+let gameState = 'title';
+let score = 0;
+let lives = 4;
+let diversOnBoard = 0;
+let oxygen = 1.0;
+let oxygenLow = false;
+let level = 0;
+let enemyValue = 20;
+let diverValue = 50;
+let nextLifeAt = 10000;
+let frame = 0;
+let surfaceTimer = 0;
+let invuln = 0;       // villogás + sebezhetetlenség (véges, pl. életvesztés után)
+let safe = false;     // sebezhetetlenség villogás nélkül (töltés / számolás)
+let patrolActive = false;
+let surfaceTriggered = false;
+let scoreSeq = null; // { remaining, timer, oxyBonus, phase } – egyenkénti pontszámolás
+let fading = [];     // { kind, obj, alpha } – mentéskori fade
+let dyingTimer = 0;  // játék vége: robbanás után várakozás
+let respawnTimer = 0; // életvesztés után: animáció vége → újra megjelenés
+let playerFade = 1;   // 0..1 megjelenési fade
+let isNewRecord = false;
+let playerVisible = true;
+let waveCleared = false; // true csak 6 búvár mentése után – akkor kell új hullám
+let silentRefill = false; // újraéledéskor nincs OXIGÉN FELTÖLTÉSE felirat
+let protectedRefill = false; // mentés/újraéledés: sebezhetetlen + pulzál amíg oxigén tölt
+
+const player = { x: 160, y: 50, w: 18, h: 10, dir: 1, speed: 1.8 };
+
+let torpedoes = [];
+let enemyTorpedoes = [];
+let sharks = [];
+let enemySubs = [];
+let divers = [];
+let patrolSub = null;
+let particles = [];
+let keys = {};
+let fireCooldown = 0;
+
+const SURFACE_Y = 28;      // felszíni pozíció (nincs ugrás)
+const WATER_TOP = 36;
+const LANES = [55, 78, 102, 126, 150];
+
+function resetGame() {
+  score = 0; lives = 4; diversOnBoard = 0;
+  oxygen = 1.0; oxygenLow = false; level = 0;
+  enemyValue = 20; diverValue = 50; nextLifeAt = 10000;
+  frame = 0; invuln = 0; safe = false; patrolActive = false;
+  surfaceTriggered = true;
+  player.x = 160; player.y = SURFACE_Y; player.dir = 1;
+  playerVisible = true;
+  playerFade = 1;
+  waveCleared = false;
+  silentRefill = false;
+  protectedRefill = false;
+  fading = [];
+  dyingTimer = 0;
+  respawnTimer = 0;
+  torpedoes = []; enemyTorpedoes = [];
+  sharks = []; enemySubs = []; divers = [];
+  patrolSub = null; particles = [];
+  spawnInitialEnemies();
+}
+
+function spawnInitialEnemies() {
+  sharks = []; enemySubs = []; divers = [];
+  for (let i = 0; i < 3; i++) spawnShark();
+  // Első pályán (level 0) nincs ellenséges tengeralattjáró
+  if (level > 0) {
+    for (let i = 0; i < 1; i++) spawnEnemySub();
+  }
+  for (let i = 0; i < 2; i++) spawnDiver();
+}
+
+function spawnShark() {
+  const fromLeft = Math.random() < 0.5;
+  const lane = LANES[Math.floor(Math.random() * LANES.length)];
+  sharks.push({
+    x: fromLeft ? -20 : W + 20,
+    y: lane,
+    w: 16, h: 8,
+    dir: fromLeft ? 1 : -1,
+    speed: 0.6 + level * 0.12 + Math.random() * 0.3,
+    wave: Math.random() * Math.PI * 2,
+    waveSpeed: 0.08 + Math.random() * 0.04
+  });
+}
+
+function spawnEnemySub() {
+  const fromLeft = Math.random() < 0.5;
+  const lane = LANES[Math.floor(Math.random() * (LANES.length - 1))];
+  enemySubs.push({
+    x: fromLeft ? -22 : W + 22,
+    y: lane,
+    w: 18, h: 9,
+    dir: fromLeft ? 1 : -1,
+    speed: 0.5 + level * 0.1 + Math.random() * 0.25,
+    fireTimer: 40 + Math.random() * 80
+  });
+}
+
+function spawnDiver() {
+  const fromLeft = Math.random() < 0.5;
+  const lane = LANES[Math.floor(Math.random() * LANES.length)];
+  divers.push({
+    x: fromLeft ? -12 : W + 12,
+    y: lane,
+    baseY: lane,
+    w: 10, h: 8,
+    dir: fromLeft ? 1 : -1,
+    speed: 0.35 + Math.random() * 0.25,
+    phase: Math.random() * Math.PI * 2
+  });
+}
+
+function spawnPatrol() {
+  patrolSub = {
+    x: -30, y: SURFACE_Y, w: 28, h: 10,
+    dir: 1, speed: 0.7 + level * 0.08
+  };
+}
+
+// --- Rajzolás ---
+// Az égbolt csíkos naplemente csak felül van; a vízfelszín tiszta kék
+function drawSky() {
+  // Égbolt (naplemente sávok) – csak a felső rész
+  const bands = [
+    {y:0,  h:10, c:'#3a5a8a'},
+    {y:10, h:6,  c:'#5a4a8a'},
+    {y:16, h:5,  c:'#8a4a7a'},
+    {y:21, h:4,  c:'#b05a5a'},
+    {y:25, h:3,  c:'#c87840'},
+    {y:28, h:3,  c:'#d0a050'}
+  ];
+  bands.forEach(b => { ctx.fillStyle = b.c; ctx.fillRect(0, b.y, W, b.h); });
+  // Vízfelszín – tiszta sötétkék vonal, semmi piros/sárga
+  ctx.fillStyle = '#1a4060';
+  ctx.fillRect(0, 31, W, 3);
+  ctx.fillStyle = '#0d3050';
+  ctx.fillRect(0, 34, W, 2);
+}
+
+function drawWater() {
+  // Tiszta sötétkék víz a felszín alatt
+  ctx.fillStyle = '#0a1a40';
+  ctx.fillRect(0, 36, W, H - 36 - 36);
+  // Enyhe mélység
+  const g = ctx.createLinearGradient(0, 36, 0, H - 36);
+  g.addColorStop(0, 'rgba(15,40,90,0.25)');
+  g.addColorStop(1, 'rgba(0,8,25,0.45)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 36, W, H - 36 - 36);
+}
+
+function drawSeabed() {
+  ctx.fillStyle = '#1a3a20';
+  ctx.fillRect(0, H - 36, W, 8);
+  ctx.fillStyle = '#2a4a30';
+  ctx.fillRect(0, H - 28, W, 28);
+  ctx.fillStyle = '#3a5a40';
+  for (let i = 0; i < 40; i++) {
+    const x = (i * 37 + frame) % W;
+    ctx.fillRect(x, H - 26 + (i % 5), 3, 2);
+  }
+}
+
+function drawPlayer() {
+  const px = Math.round(player.x);
+  const py = Math.round(player.y);
+  ctx.save();
+  // Pulzálás a frame alapján (nem invuln számlálón – az 9999-re állítva nem villogna)
+  let a = Math.max(0, Math.min(1, playerFade));
+  const pulsing = invuln > 0 || (protectedRefill && safe);
+  if (pulsing && Math.floor(frame / 5) % 2 === 0) a *= 0.22;
+  ctx.globalAlpha = a;
+  // Mindig jobbra néző sprite-ot rajzolunk, majd tükrözünk ha balra megy
+  if (player.dir < 0) {
+    ctx.translate(px + player.w / 2, 0);
+    ctx.scale(-1, 1);
+    ctx.translate(-(px + player.w / 2), 0);
+  }
+  // Test
+  ctx.fillStyle = '#d4c84a';
+  ctx.fillRect(px + 3, py + 2, 12, 6);
+  // Orr (csúcsos eleje) – jobb oldalon
+  ctx.fillRect(px + 14, py + 3, 3, 4);
+  ctx.fillRect(px + 16, py + 4, 2, 2);
+  // Torony
+  ctx.fillRect(px + 7, py, 5, 3);
+  // Ablak
+  ctx.fillStyle = '#2a4a8a';
+  ctx.fillRect(px + 9, py + 1, 2, 2);
+  // Propeller HÁTUL (bal oldal)
+  ctx.fillStyle = '#888';
+  const prop = Math.floor(frame / 2) % 3;
+  ctx.fillRect(px, py + 2 + prop, 3, 2);
+  ctx.fillRect(px, py + 5 - (prop > 0 ? 1 : 0), 3, 2);
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function drawShark(s) {
+  const x = Math.round(s.x);
+  const y = Math.round(s.y + Math.sin(s.wave) * 4);
+  ctx.save();
+  if (s.dir < 0) {
+    ctx.translate(x + s.w / 2, 0);
+    ctx.scale(-1, 1);
+    ctx.translate(-(x + s.w / 2), 0);
+  }
+  ctx.fillStyle = '#5cb85c';
+  ctx.beginPath();
+  ctx.moveTo(x, y + 4);
+  ctx.lineTo(x + 12, y);
+  ctx.lineTo(x + 16, y + 4);
+  ctx.lineTo(x + 12, y + 8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#3a9a3a';
+  ctx.fillRect(x + 6, y - 2, 4, 3);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(x + 11, y + 2, 2, 2);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(x + 12, y + 2, 1, 1);
+  ctx.fillStyle = '#c44';
+  ctx.fillRect(x + 14, y + 4, 2, 1);
+  ctx.restore();
+}
+
+function drawEnemySub(s) {
+  const x = Math.round(s.x);
+  const y = Math.round(s.y);
+  ctx.save();
+  if (s.dir < 0) {
+    ctx.translate(x + s.w / 2, 0);
+    ctx.scale(-1, 1);
+    ctx.translate(-(x + s.w / 2), 0);
+  }
+  // Test
+  ctx.fillStyle = '#8a8a9a';
+  ctx.fillRect(x + 3, y + 2, 12, 5);
+  // Orr (csúcsos eleje)
+  ctx.fillRect(x + 14, y + 3, 3, 3);
+  ctx.fillRect(x + 16, y + 4, 2, 2);
+  // Torony
+  ctx.fillStyle = '#6a6a7a';
+  ctx.fillRect(x + 7, y, 5, 3);
+  // Ablak
+  ctx.fillStyle = '#4a4a5a';
+  ctx.fillRect(x + 9, y + 1, 2, 1);
+  // Propeller HÁTUL
+  ctx.fillStyle = '#666';
+  const prop = Math.floor(frame / 2) % 3;
+  ctx.fillRect(x, y + 2 + (prop > 0 ? 1 : 0), 3, 2);
+  ctx.fillRect(x, y + 5 - (prop > 1 ? 1 : 0), 3, 2);
+  ctx.restore();
+}
+
+function drawDiver(d) {
+  // Úszó búvár: vízszintes test, lábbal rugdos, enyhén lebeg
+  const x = Math.round(d.x);
+  const bob = Math.sin(d.phase) * 2.5;
+  const y = Math.round(d.baseY + bob);
+  const kick = Math.sin(d.phase * 2.2) * 2;
+
+  ctx.save();
+  if (d.dir < 0) {
+    ctx.translate(x + d.w / 2, 0);
+    ctx.scale(-1, 1);
+    ctx.translate(-(x + d.w / 2), 0);
+  }
+
+  // Test (vízszintes)
+  ctx.fillStyle = '#5a8ada';
+  ctx.fillRect(x + 1, y + 2, 7, 4);
+
+  // Fej
+  ctx.fillStyle = '#f0d0a0';
+  ctx.fillRect(x + 7, y + 1, 3, 3);
+
+  // Kar előre
+  ctx.fillStyle = '#5a8ada';
+  ctx.fillRect(x + 6, y + 4, 3, 2);
+
+  // Lábak (úszó rugdosás)
+  ctx.fillStyle = '#4a7aca';
+  ctx.fillRect(x - 1, y + 3 + kick, 3, 2);
+  ctx.fillRect(x - 1, y + 5 - kick, 3, 2);
+
+  // Buborék
+  if (frame % 18 < 8) {
+    ctx.fillStyle = 'rgba(200,230,255,0.7)';
+    ctx.fillRect(x + 9, y - 1, 2, 2);
+  }
+  ctx.restore();
+}
+
+function drawPatrol() {
+  if (!patrolSub) return;
+  // Ugyanazon a felszínen úszik, mint a játékos sub
+  patrolSub.y = SURFACE_Y;
+  const x = Math.round(patrolSub.x);
+  const y = Math.round(patrolSub.y);
+  ctx.save();
+  if (patrolSub.dir < 0) {
+    ctx.translate(x + patrolSub.w / 2, 0);
+    ctx.scale(-1, 1);
+    ctx.translate(-(x + patrolSub.w / 2), 0);
+  }
+  // Igazi hajóforma (fekete)
+  // Törzs
+  ctx.fillStyle = '#111';
+  ctx.fillRect(x + 4, y + 4, 18, 5);
+  // Orr – hegyes orr előre
+  ctx.beginPath();
+  ctx.moveTo(x + 22, y + 4);
+  ctx.lineTo(x + 28, y + 6);
+  ctx.lineTo(x + 22, y + 9);
+  ctx.closePath();
+  ctx.fill();
+  // Far
+  ctx.fillRect(x + 1, y + 5, 4, 3);
+  // Fedélzet / kabin
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(x + 8, y + 1, 10, 4);
+  // Kémény
+  ctx.fillStyle = '#000';
+  ctx.fillRect(x + 12, y - 2, 3, 4);
+  // Ablakok
+  ctx.fillStyle = '#555';
+  ctx.fillRect(x + 10, y + 2, 2, 2);
+  ctx.fillRect(x + 14, y + 2, 2, 2);
+  ctx.restore();
+}
+
+function drawTorpedo(t) {
+  ctx.fillStyle = t.enemy ? '#f44' : '#ff0';
+  ctx.fillRect(Math.round(t.x), Math.round(t.y), t.w, t.h);
+}
+
+function drawOxygenBar() {
+  // Középen: D-pad és TŰZ között
+  const barW = 120, barH = 8;
+  const barX = (W - barW) / 2 + 12;
+  const barY = H - 22;
+  ctx.fillStyle = '#aaa';
+  ctx.font = '8px monospace';
+  ctx.fillText('OXIGÉN', barX - 40, barY + 7);
+  ctx.fillStyle = '#111';
+  ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
+  const oxW = Math.max(0, oxygen * barW);
+  ctx.fillStyle = oxygen > 0.25 ? '#ddd' : ((Math.floor(frame / 8) % 2) ? '#f44' : '#fa0');
+  ctx.fillRect(barX, barY, oxW, barH);
+}
+
+// Élet ikon – pontosan a játékos tengeralattjáró formája (kicsiben)
+function drawLifeIcon(px, py) {
+  ctx.fillStyle = '#d4c84a';
+  // Test
+  ctx.fillRect(px + 3, py + 2, 12, 6);
+  // Orr (csúcsos)
+  ctx.fillRect(px + 14, py + 3, 3, 4);
+  ctx.fillRect(px + 16, py + 4, 2, 2);
+  // Torony
+  ctx.fillRect(px + 7, py, 5, 3);
+  // Ablak
+  ctx.fillStyle = '#2a4a8a';
+  ctx.fillRect(px + 9, py + 1, 2, 2);
+  // Propeller hátul
+  ctx.fillStyle = '#888';
+  ctx.fillRect(px, py + 3, 3, 2);
+  ctx.fillRect(px, py + 5, 3, 2);
+}
+
+function drawHUD() {
+  // Pontszám – bal oldal, 8px margó
+  ctx.fillStyle = '#fff';
+  ctx.font = '12px monospace';
+  ctx.fillText(String(score).padStart(6, '0'), 8, 14);
+
+  // Életek – jobb oldal, ugyanaz a 8px margó, sub formájú ikonok
+  const reserve = Math.max(0, lives - 1);
+  const iconW = 18;
+  const gap = 4;
+  for (let i = 0; i < Math.min(reserve, 6); i++) {
+    // jobbról balra sorolva, 8px margó a jobb széltől
+    const sx = W - 8 - iconW - i * (iconW + gap);
+    drawLifeIcon(sx, 3);
+  }
+
+  // Összegyűjtött búvárok – fektetve, széttárt lábakkal (eredeti stílus), oxigéncsík alatt
+  const showDivers = diversOnBoard < 6 || (Math.floor(frame / 10) % 2 === 0);
+  if (showDivers) {
+    const diverStartX = (W - 120) / 2 + 12;
+    for (let i = 0; i < diversOnBoard; i++) {
+      const dx = diverStartX + i * 18;
+      const dy = H - 10;
+      // Test (vízszintes)
+      ctx.fillStyle = '#5a8ada';
+      ctx.fillRect(dx + 3, dy + 1, 6, 3);
+      // Fej
+      ctx.fillStyle = '#f0d0a0';
+      ctx.fillRect(dx + 9, dy, 3, 3);
+      // Kar
+      ctx.fillStyle = '#5a8ada';
+      ctx.fillRect(dx + 7, dy + 3, 3, 2);
+      // Lábak széttárva (fektetett állapot)
+      ctx.fillStyle = '#4a7aca';
+      ctx.fillRect(dx, dy, 3, 2);       // felső láb
+      ctx.fillRect(dx, dy + 3, 3, 2);   // alsó láb
+    }
+  }
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = p.life;
+    ctx.fillRect(p.x, p.y, p.size, p.size);
+    ctx.globalAlpha = 1;
+  });
+}
+
+// --- Logika ---
+function updatePlayer() {
+
+  let dx = 0, dy = 0;
+  if (keys['ArrowLeft'] || keys['a'] || keys['A'] || keys['btnLeft'])  { dx = -1; player.dir = -1; }
+  if (keys['ArrowRight'] || keys['d'] || keys['D'] || keys['btnRight']) { dx = 1;  player.dir = 1; }
+  if (keys['ArrowUp'] || keys['w'] || keys['W'] || keys['btnUp']) dy = -1;
+  if (keys['ArrowDown'] || keys['s'] || keys['S'] || keys['btnDown']) dy = 1;
+
+  player.x += dx * player.speed;
+  player.y += dy * player.speed;
+  player.x = Math.max(0, Math.min(W - player.w, player.x));
+  // Felszín ~28, tengerfenék előtt megáll
+  player.y = Math.max(SURFACE_Y, Math.min(H - 48, player.y));
+
+  // Felületre emelkedés – csak egyszer, ugrás nélkül
+  if (player.y <= SURFACE_Y) {
+    if (!surfaceTriggered && gameState === 'playing') {
+      // 6 búvár: védelem+pulzálás ROGTON a felszínre érkezéskor
+      if (diversOnBoard === 6) {
+        protectedRefill = true;
+        safe = true;
+        invuln = 0; // pulzálás: protectedRefill+safe (frame alapú)
+      }
+      surfaceTriggered = true;
+      doSurface();
+    }
+  } else {
+    surfaceTriggered = false;
+  }
+
+  if (gameState === 'playing' && (keys[' '] || keys['btnFire']) && fireCooldown <= 0) {
+    torpedoes.push({
+      x: player.dir > 0 ? player.x + player.w : player.x - 6,
+      y: player.y + 4,
+      w: 6, h: 2,
+      dir: player.dir,
+      speed: 4,
+      enemy: false
+    });
+    playShoot();
+    fireCooldown = 8;
+  }
+  if (fireCooldown > 0) fireCooldown--;
+}
+
+function doSurface() {
+  // Üresen felmenni = életvesztés
+  if (diversOnBoard === 0) {
+    loseLife();
+    return;
+  }
+
+  if (diversOnBoard === 6) {
+    // Azonnal a felszínen, rögtön számolás – sebezhetetlen
+    const oxyBonus = Math.floor(oxygen * 100) * (level + 1);
+    scoreSeq = {
+      remaining: 6,
+      timer: 0,
+      oxyBonus: oxyBonus,
+      phase: 'divers'
+    };
+    gameState = 'scoring';
+    safe = true;
+    protectedRefill = true;
+    invuln = 0;
+    playSurface();
+    playRescueFanfare();
+    // Pálya fade-del ürül (járőrhajó és játékos marad)
+    startClearFade();
+  } else {
+    // 1–5 búvár: egy elveszik, felszínen tölt – sebezhetetlen amíg oxigén tele
+    diversOnBoard = Math.max(0, diversOnBoard - 1);
+    oxygenLow = false;
+    // már a felszínen van, nincs ugrás
+    playSurface();
+    gameState = 'refilling';
+    safe = false;
+    protectedRefill = false;
+    invuln = 0; // játékos ügyessége – nincs védelem / pulzálás
+  }
+}
+
+function startClearFade() {
+  waveCleared = true;
+  fading = [];
+  sharks.forEach(s => fading.push({ kind: 'shark', obj: Object.assign({}, s), alpha: 1 }));
+  enemySubs.forEach(s => fading.push({ kind: 'sub', obj: Object.assign({}, s), alpha: 1 }));
+  divers.forEach(d => fading.push({ kind: 'diver', obj: Object.assign({}, d), alpha: 1 }));
+  torpedoes.forEach(t => fading.push({ kind: 'torpedo', obj: Object.assign({}, t), alpha: 1 }));
+  enemyTorpedoes.forEach(t => fading.push({ kind: 'torpedo', obj: Object.assign({}, t), alpha: 1 }));
+  sharks = [];
+  enemySubs = [];
+  divers = [];
+  torpedoes = [];
+  enemyTorpedoes = [];
+}
+
+function updateFading() {
+  fading.forEach(f => { f.alpha -= 0.025; });
+  fading = fading.filter(f => f.alpha > 0);
+}
+
+function drawFading() {
+  fading.forEach(f => {
+    ctx.globalAlpha = Math.max(0, f.alpha);
+    if (f.kind === 'shark') drawShark(f.obj);
+    else if (f.kind === 'sub') drawEnemySub(f.obj);
+    else if (f.kind === 'diver') drawDiver(f.obj);
+    else if (f.kind === 'torpedo') drawTorpedo(f.obj);
+    ctx.globalAlpha = 1;
+  });
+}
+
+function loseLife() {
+  // Villogás vagy safe (töltés) alatt nem lehet sérülni
+  if (invuln > 0 || safe) return;
+  playExplode();
+  for (let i = 0; i < 24; i++) {
+    particles.push({
+      x: player.x + player.w / 2,
+      y: player.y + player.h / 2,
+      vx: (Math.random() - 0.5) * 5,
+      vy: (Math.random() - 0.5) * 5,
+      life: 1,
+      size: 2 + Math.random() * 3,
+      color: ['#ff0','#f80','#f00','#fff'][Math.floor(Math.random()*4)]
+    });
+  }
+  lives--;
+  diversOnBoard = 0;
+  if (lives <= 0) {
+    // Először a sub megsemmisül, utána jön a JÁTÉK VÉGE
+    playerVisible = false;
+    dyingTimer = 50;
+    gameState = 'dying';
+    controlsEl.classList.remove('visible');
+    torpedoes = [];
+    enemyTorpedoes = [];
+    return;
+  }
+  // Van még élet: sub eltűnik, robbanás végéig vár, aztán jelenik meg
+  playerVisible = false;
+  respawnTimer = 45;
+  safe = true;
+  protectedRefill = true;
+  invuln = 0; // pulzálás protectedRefill alatt (frame), már a várakozástól
+  torpedoes = [];
+  enemyTorpedoes = [];
+}
+
+function doRespawn() {
+  // Oxigén marad ahol volt – ha nem tele, fokozatosan tölt
+  player.x = 160;
+  player.y = SURFACE_Y;
+  surfaceTriggered = true;
+  playerVisible = true;
+  playerFade = 0;
+  respawnTimer = 0;
+  if (oxygen < 1) {
+    oxygenLow = oxygen < 0.22;
+    safe = true;
+    protectedRefill = true;
+    silentRefill = true;
+    invuln = 0;
+    gameState = 'refilling';
+  } else {
+    oxygenLow = false;
+    safe = false;
+    protectedRefill = false;
+    silentRefill = false;
+    invuln = 60;
+    gameState = 'playing';
+  }
+}
+
+function finishDying() {
+  isNewRecord = score > getHighScore();
+  if (isNewRecord) setHighScore(score);
+  updateRecordLine();
+  gameState = 'gameover';
+  showGameOverOverlay();
+}
+
+// Játék vége: szöveg a canvason (eredeti stílus), csak az ÚJ JÁTÉK gomb HTML
+function showGameOverOverlay() {
+  const ov = document.getElementById('overlay');
+  const h1 = ov.querySelector('h1');
+  const paras = ov.querySelectorAll('p');
+  // Szövegek elrejtve – a canvas rajzolja őket
+  if (h1) h1.style.display = 'none';
+  paras.forEach(p => { p.style.display = 'none'; });
+  ov.style.background = 'transparent';
+  document.getElementById('startBtn').textContent = 'ÚJ JÁTÉK';
+  document.getElementById('startBtn').style.marginTop = '220px';
+  const cs = document.getElementById('clearStatsPanel');
+  if (cs) cs.classList.remove('show');
+  ov.style.display = 'flex';
+}
+
+function showTitleOverlay() {
+  const ov = document.getElementById('overlay');
+  const h1 = ov.querySelector('h1');
+  const paras = ov.querySelectorAll('p');
+  if (h1) {
+    h1.style.display = '';
+    h1.textContent = 'SEAQUEST';
+    h1.style.color = '#ffcc00';
+  }
+  paras.forEach(p => { p.style.display = ''; });
+  ov.style.background = '#000';
+  document.getElementById('startBtn').style.marginTop = '';
+  if (paras[0]) paras[0].textContent = 'Activision · Atari 2600 · 1983';
+  if (paras[1]) paras[1].innerHTML = 'Mentsd meg a búvárokat!<br>6 búvár számára van hely, figyelj az oxigénre!';
+  if (paras[2]) paras[2].innerHTML = 'Irányítás: nyilak / WASD / virtuális gombok<br>Lövés: SPACE / TŰZ';
+  updateRecordLine();
+  document.getElementById('startBtn').textContent = 'ÚJ JÁTÉK';
+  ov.style.display = 'flex';
+}
+
+function updateTorpedoes() {
+  torpedoes = torpedoes.filter(t => { t.x += t.dir * t.speed; return t.x > -10 && t.x < W + 10; });
+  enemyTorpedoes = enemyTorpedoes.filter(t => { t.x += t.dir * t.speed; return t.x > -10 && t.x < W + 10; });
+}
+
+function updateSharks() {
+  sharks.forEach(s => { s.x += s.dir * s.speed; s.wave += s.waveSpeed; });
+  sharks = sharks.filter(s => s.x > -40 && s.x < W + 40);
+  // Új ellenség csak játék közben – felszínen / töltéskor ne regenerálódjon a pálya
+  if (gameState !== 'playing') return;
+  while (sharks.length < 2 + Math.min(level, 4)) {
+    if (Math.random() < 0.02) spawnShark(); else break;
+  }
+}
+
+function updateEnemySubs() {
+  enemySubs.forEach(s => {
+    s.x += s.dir * s.speed;
+    s.fireTimer--;
+    if (s.fireTimer <= 0 && gameState === 'playing') {
+      enemyTorpedoes.push({
+        x: s.dir > 0 ? s.x + s.w : s.x - 6,
+        y: s.y + 3, w: 5, h: 2,
+        dir: s.dir, speed: 2.5 + level * 0.15, enemy: true
+      });
+      s.fireTimer = 60 + Math.random() * 90 - level * 5;
+    }
+  });
+  enemySubs = enemySubs.filter(s => s.x > -40 && s.x < W + 40);
+  if (gameState !== 'playing') return;
+  if (level > 0) {
+    const target = 1 + Math.min(Math.floor(level / 2), 3);
+    while (enemySubs.length < target) {
+      if (Math.random() < 0.015) spawnEnemySub(); else break;
+    }
+  }
+}
+
+function updateDivers() {
+  divers.forEach(d => {
+    d.x += d.dir * d.speed;
+    d.phase += 0.12;
+  });
+  divers = divers.filter(d => d.x > -30 && d.x < W + 30);
+  // Új búvárok csak játék közben
+  if (gameState !== 'playing') return;
+  while (divers.length < 1 + Math.min(level, 3)) {
+    if (Math.random() < 0.02) spawnDiver(); else break;
+  }
+}
+
+function updatePatrol() {
+  if (!patrolSub) return;
+  patrolSub.x += patrolSub.dir * patrolSub.speed;
+  if (patrolSub.x > W + 30) { patrolSub.x = W + 30; patrolSub.dir = -1; }
+  else if (patrolSub.x < -30) { patrolSub.x = -30; patrolSub.dir = 1; }
+}
+
+function updateOxygen() {
+  if (gameState !== 'playing') return;
+  // Csak víz alatt fogy
+  if (player.y > SURFACE_Y) {
+    oxygen -= 0.0009;
+    if (oxygen < 0.22 && !oxygenLow) oxygenLow = true;
+    // Sziréna ~másodpercenként kétszer
+    if (oxygenLow && frame % 25 === 0) playAlarm();
+    if (oxygen <= 0) {
+      oxygen = 0;
+      loseLife();
+    }
+  }
+}
+
+function spawnPop(x, y) {
+  // Kipukkanó hal animáció – fehér/zöld buborékok
+  for (let i = 0; i < 10; i++) {
+    const a = (Math.PI * 2 * i) / 10;
+    particles.push({
+      x: x, y: y,
+      vx: Math.cos(a) * (1.5 + Math.random() * 2),
+      vy: Math.sin(a) * (1.5 + Math.random() * 2),
+      life: 1,
+      size: 2 + Math.random() * 3,
+      color: ['#8f8', '#afa', '#fff', '#cfc'][Math.floor(Math.random() * 4)]
+    });
+  }
+}
+function spawnExplosion(x, y) {
+  // Robbanás – narancs/sárga/piros
+  for (let i = 0; i < 18; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 1 + Math.random() * 3.5;
+    particles.push({
+      x: x, y: y,
+      vx: Math.cos(a) * sp,
+      vy: Math.sin(a) * sp,
+      life: 1,
+      size: 2 + Math.random() * 4,
+      color: ['#ff0', '#f80', '#f40', '#fa0', '#fff'][Math.floor(Math.random() * 5)]
+    });
+  }
+}
+
+function checkCollisions() {
+  if (gameState !== 'playing' && gameState !== 'refilling') return;
+  const px = player.x, py = player.y, pw = player.w, ph = player.h;
+
+  // Sebezhetetlenség csak amíg safe (búvárszámolás / oxigéntöltés) vagy invuln
+  // Ha az oxigén már tele és még a felszínen vagy, lehet sérülni (pl. járőrhajó)
+  if (invuln <= 0 && !safe) {
+    if (py > SURFACE_Y + 4) {
+      for (const s of sharks) {
+        const sy = s.y + Math.sin(s.wave) * 4;
+        if (rectOverlap(px, py, pw, ph, s.x, sy, s.w, s.h)) { loseLife(); return; }
+      }
+      for (const s of enemySubs) {
+        if (rectOverlap(px, py, pw, ph, s.x, s.y, s.w, s.h)) { loseLife(); return; }
+      }
+    }
+    for (let i = enemyTorpedoes.length - 1; i >= 0; i--) {
+      const t = enemyTorpedoes[i];
+      if (rectOverlap(px, py, pw, ph, t.x, t.y, t.w, t.h)) {
+        enemyTorpedoes.splice(i, 1);
+        loseLife();
+        return;
+      }
+    }
+    if (patrolSub && py <= SURFACE_Y + 6) {
+      if (rectOverlap(px, py, pw, ph, patrolSub.x, patrolSub.y, patrolSub.w, patrolSub.h)) {
+        loseLife();
+        return;
+      }
+    }
+  }
+
+  // Búvár felvétel
+  for (let i = divers.length - 1; i >= 0; i--) {
+    const d = divers[i];
+    const dy = d.baseY + Math.sin(d.phase) * 2.5;
+    if (diversOnBoard < 6 && rectOverlap(px, py, pw, ph, d.x, dy, d.w, d.h)) {
+      divers.splice(i, 1);
+      diversOnBoard++;
+      playCollect();
+      if (diversOnBoard === 6) playFullDivers();
+    }
+  }
+
+  // Játékos torpedó vs ellenség – csak a látható képernyőn sebez
+  for (let i = torpedoes.length - 1; i >= 0; i--) {
+    const t = torpedoes[i];
+    // Látható területen kívül nem sebez
+    if (t.x + t.w < 0 || t.x > W || t.y + t.h < 0 || t.y > H) continue;
+    let hit = false;
+    for (let j = sharks.length - 1; j >= 0; j--) {
+      const s = sharks[j];
+      const sy = s.y + Math.sin(s.wave) * 4;
+      // Ellenség is legyen legalább részben a képernyőn
+      if (s.x + s.w < 0 || s.x > W) continue;
+      if (rectOverlap(t.x, t.y, t.w, t.h, s.x, sy, s.w, s.h)) {
+        const cx = s.x + s.w / 2, cy = sy + s.h / 2;
+        sharks.splice(j, 1);
+        torpedoes.splice(i, 1);
+        score += enemyValue;
+        playHitShark();
+        spawnPop(cx, cy);
+        hit = true;
+        break;
+      }
+    }
+    if (hit) continue;
+    for (let j = enemySubs.length - 1; j >= 0; j--) {
+      const s = enemySubs[j];
+      if (s.x + s.w < 0 || s.x > W) continue;
+      if (rectOverlap(t.x, t.y, t.w, t.h, s.x, s.y, s.w, s.h)) {
+        const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
+        enemySubs.splice(j, 1);
+        torpedoes.splice(i, 1);
+        score += enemyValue;
+        playHitSub();
+        spawnExplosion(cx, cy);
+        break;
+      }
+    }
+  }
+
+  if (score >= nextLifeAt) {
+    lives = Math.min(7, lives + 1);
+    nextLifeAt += 10000;
+    playBonus();
+  }
+}
+
+function rectOverlap(x1,y1,w1,h1,x2,y2,w2,h2) {
+  return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
+}
+
+function updateParticles() {
+  particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.vx *= 0.96; p.vy *= 0.96; p.life -= 0.025; });
+  particles = particles.filter(p => p.life > 0);
+}
+
+function update() {
+  frame++;
+
+  if (gameState === 'playing') {
+    if (respawnTimer > 0) {
+      // Robbanás animáció – sub még nem látszik, nem irányítható
+      respawnTimer--;
+      updateTorpedoes();
+      updateSharks();
+      updateEnemySubs();
+      updateDivers();
+      updatePatrol();
+      updateParticles();
+      if (respawnTimer <= 0) doRespawn();
+    } else {
+      if (playerFade < 1) playerFade = Math.min(1, playerFade + 0.06);
+      updatePlayer();
+      updateTorpedoes();
+      updateSharks();
+      updateEnemySubs();
+      updateDivers();
+      updatePatrol();
+      updateOxygen();
+      checkCollisions();
+      updateParticles();
+    }
+  } else if (gameState === 'scoring') {
+    // Egyenkénti pontszámolás – játékos nem irányíthat
+    updateScoreSequence();
+    updatePatrol();
+    updateParticles();
+  } else if (gameState === 'refilling') {
+    if (playerFade < 1) playerFade = Math.min(1, playerFade + 0.06);
+    updatePlayerRefill();
+    updateTorpedoes();
+    updateSharks();
+    updateEnemySubs();
+    updateDivers();
+    updatePatrol();
+    updateParticles();
+
+    // Oxigén + védelem ELŐBB, collision UTÁNA (ne legyen lyuk)
+    if (player.y <= SURFACE_Y + 2) {
+      const prev = oxygen;
+      oxygen = Math.min(1, oxygen + 0.012);
+      if (protectedRefill) {
+        if (oxygen < 1) {
+          safe = true;
+        } else {
+          // Tele oxigén: mindig induljon az 1 mp (akár már tele volt)
+          oxygen = 1;
+          oxygenLow = false;
+          safe = false;
+          silentRefill = false;
+          if (prev < 1) beep(180, 0.2, 'sine', 0.08);
+          if (invuln < 60) invuln = 60;
+          protectedRefill = false;
+        }
+      } else if (oxygen >= 1) {
+        oxygen = 1;
+        oxygenLow = false;
+        if (prev < 1) beep(180, 0.2, 'sine', 0.08);
+      }
+      if (oxygen < 1 && frame % 6 === 0) playOxygenFill(oxygen);
+    } else {
+      // Merülés: 1 mp védelem megmarad / elindul
+      gameState = 'playing';
+      surfaceTriggered = false;
+      silentRefill = false;
+      if (protectedRefill) {
+        if (invuln < 60) invuln = 60;
+        protectedRefill = false;
+      }
+      safe = false;
+      if (invuln > 60) invuln = 60;
+      if (waveCleared) {
+        spawnInitialEnemies();
+        waveCleared = false;
+      }
+    }
+    checkCollisions();
+  } else if (gameState === 'dying') {
+    updateParticles();
+    updateFading();
+    dyingTimer--;
+    if (dyingTimer <= 0) finishDying();
+  } else if (gameState === 'gameover') {
+    // frame++ már a update elején – pulzáláshoz elég
+  }
+  if (gameState === 'scoring' || gameState === 'refilling') updateFading();
+  // invuln a frame végén csökken – így az újonnan adott védelem ugyanabban a tickben is érvényes
+  if (invuln > 0) invuln--;
+}
+
+function updateScoreSequence() {
+  if (!scoreSeq) return;
+  scoreSeq.timer++;
+
+  // Mindig a felszínen, sebezhetetlen + pulzál (protectedRefill)
+  player.y = SURFACE_Y;
+  safe = true;
+  protectedRefill = true;
+
+  if (scoreSeq.phase === 'divers') {
+    // Minden ~16 frame-ben egy búvár pontja
+    if (scoreSeq.timer >= 16) {
+      scoreSeq.timer = 0;
+      score += diverValue;
+      diversOnBoard = Math.max(0, diversOnBoard - 1);
+      beep(520 + (6 - scoreSeq.remaining) * 40, 0.1, 'square', 0.1);
+      scoreSeq.remaining--;
+      if (scoreSeq.remaining <= 0) {
+        // Számlálás vége → oxigén bónusz + refilling (mozgatható töltés közben)
+        if (scoreSeq.oxyBonus > 0) {
+          score += scoreSeq.oxyBonus;
+          playBonus();
+        }
+        level++;
+        enemyValue = Math.min(90, 20 + level * 10);
+        diverValue = Math.min(1000, 50 + level * 50);
+        if (level >= 2) patrolActive = true;
+        if (patrolActive && !patrolSub) spawnPatrol();
+        diversOnBoard = 0;
+        scoreSeq = null;
+        gameState = 'refilling';
+        oxygenLow = false;
+        if (oxygen >= 1) {
+          protectedRefill = false;
+          safe = false;
+          invuln = 60;
+        } else {
+          protectedRefill = true;
+          safe = true;
+          invuln = 0;
+        }
+      }
+    }
+  }
+}
+
+function updatePlayerRefill() {
+  // Ugyanaz a mozgás, de a felszínen maradhat, nem triggerel új doSurface-t
+  let dx = 0, dy = 0;
+  if (keys['ArrowLeft'] || keys['a'] || keys['A'] || keys['btnLeft'])  { dx = -1; player.dir = -1; }
+  if (keys['ArrowRight'] || keys['d'] || keys['D'] || keys['btnRight']) { dx = 1;  player.dir = 1; }
+  if (keys['ArrowUp'] || keys['w'] || keys['W'] || keys['btnUp']) dy = -1;
+  if (keys['ArrowDown'] || keys['s'] || keys['S'] || keys['btnDown']) dy = 1;
+
+  player.x += dx * player.speed;
+  player.y += dy * player.speed;
+  player.x = Math.max(0, Math.min(W - player.w, player.x));
+  player.y = Math.max(SURFACE_Y, Math.min(H - 48, player.y));
+
+  if (gameState === 'refilling' && (keys[' '] || keys['btnFire']) && fireCooldown <= 0) {
+    torpedoes.push({
+      x: player.dir > 0 ? player.x + player.w : player.x - 6,
+      y: player.y + 4,
+      w: 6, h: 2,
+      dir: player.dir,
+      speed: 4,
+      enemy: false
+    });
+    playShoot();
+    fireCooldown = 8;
+  }
+  if (fireCooldown > 0) fireCooldown--;
+}
+
+function draw() {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+  drawSky();
+  drawWater();
+  drawSeabed();
+
+  if (gameState !== 'title' && gameState !== 'gameover') {
+    sharks.forEach(drawShark);
+    enemySubs.forEach(drawEnemySub);
+    divers.forEach(drawDiver);
+    drawFading();
+    drawPatrol();
+    torpedoes.forEach(drawTorpedo);
+    enemyTorpedoes.forEach(drawTorpedo);
+    if (playerVisible && gameState !== 'dying') drawPlayer();
+    drawParticles();
+    if (gameState !== 'dying') {
+      drawOxygenBar();
+      drawHUD();
+    }
+  }
+
+  // Búvárszámlálás alatt: BÚVÁROK MEGMENTVE
+  if (gameState === 'scoring' && scoreSeq && scoreSeq.phase === 'divers') {
+    ctx.fillStyle = '#ffee44';
+    ctx.font = '14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('BÚVÁROK MEGMENTVE', W / 2, H / 2);
+    ctx.textAlign = 'left';
+  }
+  // Oxigéntöltés alatt
+  if (gameState === 'refilling' && oxygen < 1 && !silentRefill) {
+    ctx.fillStyle = 'rgba(100,200,255,0.7)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('OXIGÉN FELTÖLTÉSE', W / 2, H / 2);
+    ctx.textAlign = 'left';
+  }
+
+  // Játék vége
+  if (gameState === 'gameover') {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#f44';
+    ctx.font = '18px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('JÁTÉK VÉGE', W / 2, H / 2 - 20);
+    ctx.fillStyle = '#fff';
+    ctx.font = '12px monospace';
+    const label = isNewRecord ? 'ÚJ REKORD' : 'Pontszám';
+    if (isNewRecord) {
+      const pulse = 1 + 0.08 * Math.sin(frame / 8);
+      ctx.save();
+      ctx.translate(W / 2, H / 2 + 10);
+      ctx.scale(pulse, pulse);
+      ctx.fillText(label + ': ' + score, 0, 0);
+      ctx.restore();
+    } else {
+      ctx.fillText(label + ': ' + score, W / 2, H / 2 + 10);
+    }
+    ctx.textAlign = 'left';
+  }
+}
+
+// Fix ~60 FPS + védelem a többszörös ciklus ellen (Coder újratöltés)
+const FIXED_DT = 1000 / 60;
+window.__seaquestGen = (window.__seaquestGen || 0) + 1;
+const loopGen = window.__seaquestGen;
+let lastTime = 0;
+
+function loop(now) {
+  // Régi ciklus leáll, ha a script újra betöltődött
+  if (loopGen !== window.__seaquestGen) return;
+  requestAnimationFrame(loop);
+
+  if (!lastTime) { lastTime = now; return; }
+  let frameTime = now - lastTime;
+  if (frameTime < 0) frameTime = 0;
+  if (frameTime > 50) frameTime = FIXED_DT;
+
+  // Csak akkor léptet, ha eltelt ~16.7 ms – max 1 update (nem gyorsul fel)
+  if (frameTime >= FIXED_DT) {
+    lastTime = now;
+    update();
+  }
+  draw();
+}
+
+// Input
+window.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if ([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
+  // Cím / game over: SPACE / Enter → ÚJ JÁTÉK
+  if ((gameState === 'title' || gameState === 'gameover') && (e.key === ' ' || e.key === 'Enter')) startGame();
+});
+window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+function setupTouch(id, key) {
+  const el = document.getElementById(id);
+  const down = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    keys[key] = true;
+    el.classList.add('active');
+    ensureAudio();
+  };
+  const up = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    keys[key] = false;
+    el.classList.remove('active');
+  };
+  el.addEventListener('touchstart', down, {passive: false});
+  el.addEventListener('touchend', up, {passive: false});
+  el.addEventListener('touchcancel', up, {passive: false});
+  el.addEventListener('mousedown', down);
+  el.addEventListener('mouseup', up);
+  el.addEventListener('mouseleave', up);
+}
+// D-pad = virtuális joystick (Pointer Events – nem ragad be az irány)
+(function setupJoystick() {
+  const dpad = document.getElementById('dpad');
+  const DEAD = 18;
+  let activePointerId = null;
+
+  function clearDirs() {
+    keys['btnUp'] = keys['btnDown'] = keys['btnLeft'] = keys['btnRight'] = false;
+    ['btnUp','btnDown','btnLeft','btnRight'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) b.classList.remove('active');
+    });
+  }
+
+  function applyFromPoint(clientX, clientY) {
+    const r = dpad.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const dx = clientX - cx;
+    const dy = clientY - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    clearDirs();
+    if (dist < DEAD) return;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      if (dx > 0) keys['btnRight'] = true;
+      else keys['btnLeft'] = true;
+    } else {
+      if (dy > 0) keys['btnDown'] = true;
+      else keys['btnUp'] = true;
+    }
+    if (keys['btnUp']) document.getElementById('btnUp').classList.add('active');
+    if (keys['btnDown']) document.getElementById('btnDown').classList.add('active');
+    if (keys['btnLeft']) document.getElementById('btnLeft').classList.add('active');
+    if (keys['btnRight']) document.getElementById('btnRight').classList.add('active');
+  }
+
+  function onDown(e) {
+    if (activePointerId !== null) return; // egy ujj elég
+    e.preventDefault();
+    e.stopPropagation();
+    ensureAudio();
+    activePointerId = e.pointerId;
+    try { dpad.setPointerCapture(e.pointerId); } catch (err) {}
+    applyFromPoint(e.clientX, e.clientY);
+  }
+  function onMove(e) {
+    if (e.pointerId !== activePointerId) return;
+    e.preventDefault();
+    applyFromPoint(e.clientX, e.clientY);
+  }
+  function onUp(e) {
+    if (e.pointerId !== activePointerId) return;
+    e.preventDefault();
+    try { dpad.releasePointerCapture(e.pointerId); } catch (err) {}
+    activePointerId = null;
+    clearDirs();
+  }
+
+  dpad.addEventListener('pointerdown', onDown);
+  dpad.addEventListener('pointermove', onMove);
+  dpad.addEventListener('pointerup', onUp);
+  dpad.addEventListener('pointercancel', onUp);
+  dpad.addEventListener('lostpointercapture', () => {
+    activePointerId = null;
+    clearDirs();
+  });
+
+  // iOS Safari: a nagyító (loupe) CSS-sel nem kapcsolható ki teljesen.
+  // touchstart preventDefault a megbízható megoldás (passive: false kötelező).
+  function blockIOSLoupe(e) {
+    e.preventDefault();
+  }
+  dpad.addEventListener('touchstart', blockIOSLoupe, {passive: false});
+  dpad.addEventListener('touchmove', blockIOSLoupe, {passive: false});
+
+  // FIRE gomb ugyanígy
+  const fireEl = document.getElementById('btnFire');
+  if (fireEl) {
+    fireEl.addEventListener('touchstart', blockIOSLoupe, {passive: false});
+    fireEl.addEventListener('touchmove', blockIOSLoupe, {passive: false});
+  }
+
+  // Dupla koppintás + tartás ellen a vezérlőkön
+  let lastTap = 0;
+  document.getElementById('controls').addEventListener('touchstart', (e) => {
+    const now = performance.now();
+    if (now - lastTap < 350) e.preventDefault();
+    lastTap = now;
+  }, {passive: false});
+
+  window.addEventListener('blur', clearDirs);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { activePointerId = null; clearDirs(); }
+  });
+})();
+
+setupTouch('btnFire', 'btnFire');
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('startBtn').addEventListener('touchend', e => {
+  e.preventDefault(); startGame();
+}, {passive: false});
+
+function startGame() {
+  ensureAudio();
+  document.getElementById('overlay').style.display = 'none';
+  const cs = document.getElementById('clearStatsPanel');
+  if (cs) cs.classList.remove('show');
+  keys[' '] = false;
+  keys['btnFire'] = false;
+  keys['btnUp'] = keys['btnDown'] = keys['btnLeft'] = keys['btnRight'] = false;
+  fireCooldown = 20;
+  playerVisible = true;
+  playerFade = 1;
+  isNewRecord = false;
+  fading = [];
+  dyingTimer = 0;
+  respawnTimer = 0;
+  resetGame();
+  gameState = 'playing';
+  if (isTouchDevice()) controlsEl.classList.add('visible');
+}
+
+// iOS: kijelölés / gesture / nagyító ellen
+['selectstart', 'contextmenu', 'dragstart', 'gesturestart', 'gesturechange', 'gestureend'].forEach(ev => {
+  document.addEventListener(ev, e => {
+    e.preventDefault();
+    return false;
+  }, {passive: false});
+});
+document.addEventListener('selectionchange', () => {
+  const sel = window.getSelection && window.getSelection();
+  if (sel && sel.removeAllRanges) sel.removeAllRanges();
+});
+document.addEventListener('touchend', () => {
+  const sel = window.getSelection && window.getSelection();
+  if (sel && sel.removeAllRanges) sel.removeAllRanges();
+}, {passive: true});
+// Canvas is: iOS loupe
+const _c = document.getElementById('c');
+if (_c) {
+  _c.addEventListener('touchstart', e => e.preventDefault(), {passive: false});
+  _c.addEventListener('touchmove', e => e.preventDefault(), {passive: false});
+}
+
+
+// SEAQUEST cím 5 mp nyomva → rejtett „statisztika törlése”
+(function setupClearStats() {
+  const title = document.querySelector('#overlay h1');
+  const panel = document.getElementById('clearStatsPanel');
+  const btn = document.getElementById('clearStatsBtn');
+  if (!title || !panel || !btn) return;
+  let holdTimer = null;
+  const HOLD_MS = 5000;
+
+  function startHold(e) {
+    if (gameState !== 'title') return;
+    if (holdTimer) clearTimeout(holdTimer);
+    holdTimer = setTimeout(() => {
+      panel.classList.add('show');
+    }, HOLD_MS);
+  }
+  function cancelHold() {
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+  }
+  title.addEventListener('touchstart', startHold, {passive: true});
+  title.addEventListener('mousedown', startHold);
+  title.addEventListener('touchend', cancelHold);
+  title.addEventListener('touchcancel', cancelHold);
+  title.addEventListener('mouseup', cancelHold);
+  title.addEventListener('mouseleave', cancelHold);
+
+  function doClear(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setHighScore(0);
+    updateRecordLine();
+    panel.classList.remove('show');
+    btn.textContent = 'törölve';
+    setTimeout(() => { btn.textContent = 'statisztika törlése'; }, 1500);
+  }
+  btn.addEventListener('click', doClear);
+  btn.addEventListener('touchend', doClear, {passive: false});
+})();
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
