@@ -37,17 +37,50 @@
   }
   #canvasWrap {
     position: relative;
-    /* Teljes képernyő kitöltés – nincs fekete sáv */
+    width: 100%;
+    height: 100%;
+  }
+  /* Alap: kitöltés (széthúzva a képernyőre) */
+  #canvasWrap.mode-fill {
+    width: 100%;
+    height: 100%;
+  }
+  #canvasWrap.mode-fill canvas {
+    width: 100%;
+    height: 100%;
+  }
+  /* Arányos: 4:3 letterbox, középen */
+  #canvasWrap.mode-aspect {
+    width: min(100vw, 100vh * 4 / 3);
+    height: min(100vh, 100vw * 3 / 4);
+    margin: auto;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+  #canvasWrap.mode-aspect canvas {
     width: 100%;
     height: 100%;
   }
   canvas {
     display: block;
-    width: 100%;
-    height: 100%;
     image-rendering: pixelated;
     image-rendering: crisp-edges;
     background: #000;
+  }
+  #displayModeLine {
+    margin-top: 10px;
+    font-size: clamp(12px, 3vw, 15px);
+    opacity: 0.9;
+  }
+  #displayModeLine .dm-opt {
+    color: #aaa;
+    cursor: pointer;
+    padding: 0 2px;
+  }
+  #displayModeLine .dm-opt.active {
+    color: #ffcc00;
   }
   #controls {
     display: none;
@@ -249,6 +282,7 @@
         Irányítás: nyilak / WASD / virtuális gombok<br>
         Lövés: SPACE / TŰZ
       </p>
+      <p id="displayModeLine">Megjelenés: <span class="dm-opt active" data-mode="fill" id="dmFill">Kitöltés</span> | <span class="dm-opt" data-mode="aspect" id="dmAspect">Arányos</span></p>
       <p id="recordLine" style="margin-top:10px;font-size:clamp(12px,3vw,15px);color:#ffcc00"></p>
       <button class="start-btn" id="startBtn">ÚJ JÁTÉK</button>
     </div>
@@ -263,6 +297,43 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const W = 320, H = 240;
 const controlsEl = document.getElementById('controls');
+const canvasWrap = document.getElementById('canvasWrap');
+const DM_KEY = 'seaquest_display_mode';
+
+function getDisplayMode() {
+  try { return localStorage.getItem(DM_KEY) || 'fill'; } catch(e) { return 'fill'; }
+}
+function setDisplayMode(mode) {
+  if (mode !== 'fill' && mode !== 'aspect') mode = 'fill';
+  try { localStorage.setItem(DM_KEY, mode); } catch(e) {}
+  applyDisplayMode(mode);
+  updateDisplayModeUI(mode);
+}
+function applyDisplayMode(mode) {
+  canvasWrap.classList.remove('mode-fill', 'mode-aspect');
+  canvasWrap.classList.add(mode === 'aspect' ? 'mode-aspect' : 'mode-fill');
+}
+function updateDisplayModeUI(mode) {
+  const fill = document.getElementById('dmFill');
+  const asp = document.getElementById('dmAspect');
+  if (!fill || !asp) return;
+  fill.classList.toggle('active', mode === 'fill');
+  asp.classList.toggle('active', mode === 'aspect');
+}
+(function initDisplayMode() {
+  const mode = getDisplayMode();
+  applyDisplayMode(mode);
+  updateDisplayModeUI(mode);
+  const line = document.getElementById('displayModeLine');
+  if (!line) return;
+  line.addEventListener('click', (e) => {
+    const opt = e.target.closest('.dm-opt');
+    if (!opt) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDisplayMode(opt.getAttribute('data-mode'));
+  });
+})();
 
 function isTouchDevice() {
   return ('ontouchstart' in window) ||
@@ -544,7 +615,7 @@ function spawnEnemySub() {
     y: lane,
     w: 18, h: 9,
     dir: fromLeft ? 1 : -1,
-    speed: 0.5 + level * 0.1 + Math.random() * 0.25,
+    speed: Math.min(2.0, 0.5 + level * 0.1 + Math.random() * 0.25),
     fireTimer: 40 + Math.random() * 80
   });
 }
@@ -1114,9 +1185,12 @@ function updateEnemySubs() {
       enemyTorpedoes.push({
         x: s.dir > 0 ? s.x + s.w : s.x - 6,
         y: s.y + 3, w: 5, h: 2,
-        dir: s.dir, speed: 2.5 + level * 0.15, enemy: true
+        dir: s.dir,
+        // Plafon: ne csíkozzon, és mindig gyorsabb legyen a subnál
+        speed: Math.min(3.5, Math.max(2.5 + level * 0.15, (s.speed || 0) + 1.2)),
+        enemy: true
       });
-      s.fireTimer = 60 + Math.random() * 90 - level * 5;
+      s.fireTimer = Math.max(28, 60 + Math.random() * 90 - level * 5);
     }
   });
   enemySubs = enemySubs.filter(s => s.x > -40 && s.x < W + 40);
