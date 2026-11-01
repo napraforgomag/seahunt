@@ -675,7 +675,6 @@ let enemyValue = 20;
 let diverValue = 50;
 let nextLifeAt = 10000;
 let frame = 0;
-let surfaceTimer = 0;
 let invuln = 0;       // villogás + sebezhetetlenség (véges, pl. életvesztés után)
 let safe = false;     // sebezhetetlenség villogás nélkül (töltés / számolás)
 let patrolActive = false;
@@ -834,7 +833,7 @@ function drawPlayer() {
   const px = Math.round(player.x);
   const py = Math.round(player.y);
   ctx.save();
-  // Pulzálás a frame alapján (nem invuln számlálón – az 9999-re állítva nem villogna)
+  // Pulzálás: invuln vagy protectedRefill+safe – frame alapú villogás
   let a = Math.max(0, Math.min(1, playerFade));
   const pulsing = invuln > 0 || (protectedRefill && safe);
   if (pulsing && Math.floor(frame / 5) % 2 === 0) a *= 0.22;
@@ -1327,7 +1326,8 @@ function updateSharks() {
 function updateEnemySubs() {
   enemySubs.forEach(s => {
     s.x += s.dir * s.speed;
-    s.fireTimer--;
+    // Tűz-időzítő csak játék közben fogy – felszínen/töltéskor ne gyűljön fel a lövés
+    if (gameState === 'playing') s.fireTimer--;
     if (s.fireTimer <= 0 && gameState === 'playing') {
       enemyTorpedoes.push({
         x: s.dir > 0 ? s.x + s.w : s.x - 6,
@@ -2005,11 +2005,8 @@ function startGame() {
 function updateEdgeControlsVisibility(playing) {
   const edge = document.getElementById('edgeControls');
   if (!edge) return;
-  const show = playing && isTouchDevice() && getControlMode() === 'hidden'
-    && (gameState === 'playing' || gameState === 'refilling' || gameState === 'scoring'
-        || gameState === 'dying' || respawnTimer > 0);
-  // játék közbeni állapotok – title/gameover: rejtve
-  const inGame = playing && gameState !== 'title' && gameState !== 'gameover';
+  // Rejtett zónák csak aktív játékban (nem title / gameover)
+  const inGame = !!playing && gameState !== 'title' && gameState !== 'gameover';
   edge.classList.toggle('show', inGame && getControlMode() === 'hidden' && isTouchDevice());
 }
 
