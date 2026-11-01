@@ -82,6 +82,19 @@
   #displayModeLine .dm-opt.active {
     color: #ffcc00;
   }
+  #controlModeLine {
+    margin-top: 8px;
+    font-size: clamp(12px, 3vw, 15px);
+    opacity: 0.9;
+  }
+  #controlModeLine .cm-opt {
+    color: #aaa;
+    cursor: pointer;
+    padding: 0 2px;
+  }
+  #controlModeLine .cm-opt.active {
+    color: #ffcc00;
+  }
   #controls {
     display: none;
     position: absolute;
@@ -90,6 +103,41 @@
     z-index: 20;
   }
   #controls.visible { display: block; }
+  /* Rejtett mód: klasszikus gombok elrejtve */
+  #controls.mode-hidden #dpad,
+  #controls.mode-hidden #btnFire {
+    display: none !important;
+  }
+  #controls.mode-classic #edgeControls {
+    display: none !important;
+  }
+  #edgeControls {
+    display: none;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 22;
+  }
+  #controls.mode-hidden.visible #edgeControls {
+    display: block;
+  }
+  #edgeMove, #edgeFire {
+    position: absolute;
+    top: env(safe-area-inset-top, 0px);
+    bottom: env(safe-area-inset-bottom, 0px);
+    pointer-events: auto;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  #edgeMove {
+    left: env(safe-area-inset-left, 0px);
+    width: 38%;
+  }
+  #edgeFire {
+    right: env(safe-area-inset-right, 0px);
+    width: 38%;
+  }
 
   .btn {
     position: absolute;
@@ -115,8 +163,8 @@
   /* D-pad – nagyobb, stabil keresztes elrendezés */
   #dpad {
     position: absolute;
-    left: 3%;
-    bottom: 3%;
+    left: max(3%, env(safe-area-inset-left, 0px));
+    bottom: max(3%, env(safe-area-inset-bottom, 0px));
     width: 168px;
     height: 168px;
     pointer-events: auto;
@@ -173,8 +221,8 @@
   #btnFire {
     width: 88px;
     height: 88px;
-    right: 4%;
-    bottom: 6%;
+    right: max(4%, env(safe-area-inset-right, 0px));
+    bottom: max(6%, env(safe-area-inset-bottom, 0px));
     background: rgba(255,50,50,0.4);
     border-color: rgba(255,120,120,0.75);
     padding: 0;
@@ -272,6 +320,10 @@
         <div class="btn" id="btnRight" aria-hidden="true"></div>
       </div>
       <div class="btn" id="btnFire"><canvas id="fireLabel" width="44" height="44"></canvas></div>
+      <div id="edgeControls">
+        <div id="edgeMove"></div>
+        <div id="edgeFire"></div>
+      </div>
     </div>
 
     <div id="overlay">
@@ -279,10 +331,10 @@
       <p>Activision · Atari 2600 · 1983</p>
       <p>Mentsd meg a búvárokat!<br>6 búvár számára van hely, figyelj az oxigénre!</p>
       <p style="margin-top:12px;font-size:clamp(12px,3vw,15px);opacity:0.85">
-        Irányítás: nyilak / WASD / virtuális gombok<br>
-        Lövés: SPACE / TŰZ
+        Irányítás: WASD / virtuális gombok / SPACE / TŰZ
       </p>
       <p id="displayModeLine">Megjelenés: <span class="dm-opt active" data-mode="fill" id="dmFill">Kitöltés</span> | <span class="dm-opt" data-mode="aspect" id="dmAspect">Arányos</span></p>
+      <p id="controlModeLine">Kezelőszervek: <span class="cm-opt active" data-mode="classic" id="cmClassic">Klasszikus</span> | <span class="cm-opt" data-mode="hidden" id="cmHidden">Rejtett</span></p>
       <p id="recordLine" style="margin-top:10px;font-size:clamp(12px,3vw,15px);color:#ffcc00"></p>
       <button class="start-btn" id="startBtn">ÚJ JÁTÉK</button>
     </div>
@@ -332,6 +384,42 @@ function updateDisplayModeUI(mode) {
     e.preventDefault();
     e.stopPropagation();
     setDisplayMode(opt.getAttribute('data-mode'));
+  });
+})();
+
+const CM_KEY = 'seaquest_control_mode';
+function getControlMode() {
+  try { return localStorage.getItem(CM_KEY) || 'classic'; } catch(e) { return 'classic'; }
+}
+function setControlMode(mode) {
+  if (mode !== 'classic' && mode !== 'hidden') mode = 'classic';
+  try { localStorage.setItem(CM_KEY, mode); } catch(e) {}
+  applyControlMode(mode);
+  updateControlModeUI(mode);
+}
+function applyControlMode(mode) {
+  controlsEl.classList.remove('mode-classic', 'mode-hidden');
+  controlsEl.classList.add(mode === 'hidden' ? 'mode-hidden' : 'mode-classic');
+}
+function updateControlModeUI(mode) {
+  const c = document.getElementById('cmClassic');
+  const h = document.getElementById('cmHidden');
+  if (!c || !h) return;
+  c.classList.toggle('active', mode === 'classic');
+  h.classList.toggle('active', mode === 'hidden');
+}
+(function initControlMode() {
+  const mode = getControlMode();
+  applyControlMode(mode);
+  updateControlModeUI(mode);
+  const line = document.getElementById('controlModeLine');
+  if (!line) return;
+  line.addEventListener('click', (e) => {
+    const opt = e.target.closest('.cm-opt');
+    if (!opt) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setControlMode(opt.getAttribute('data-mode'));
   });
 })();
 
@@ -1156,7 +1244,7 @@ function showTitleOverlay() {
   document.getElementById('startBtn').style.marginTop = '';
   if (paras[0]) paras[0].textContent = 'Activision · Atari 2600 · 1983';
   if (paras[1]) paras[1].innerHTML = 'Mentsd meg a búvárokat!<br>6 búvár számára van hely, figyelj az oxigénre!';
-  if (paras[2]) paras[2].innerHTML = 'Irányítás: nyilak / WASD / virtuális gombok<br>Lövés: SPACE / TŰZ';
+  if (paras[2]) paras[2].textContent = 'Irányítás: WASD / virtuális gombok / SPACE / TŰZ';
   updateRecordLine();
   document.getElementById('startBtn').textContent = 'ÚJ JÁTÉK';
   ov.style.display = 'flex';
@@ -1749,6 +1837,80 @@ function setupTouch(id, key) {
 })();
 
 setupTouch('btnFire', 'btnFire');
+
+// Rejtett kezelőszervek: bal = joystick, jobb = tűz (safe area a CSS-ben)
+(function setupEdgeControls() {
+  const moveEl = document.getElementById('edgeMove');
+  const fireEl = document.getElementById('edgeFire');
+  if (!moveEl || !fireEl) return;
+  const DEAD = 12;
+  let movePtr = null;
+  let originX = 0, originY = 0; // ahol az ujj leér – ehhez képest irány
+  const firePtrs = new Set();
+
+  function clearDirs() {
+    keys['btnUp'] = keys['btnDown'] = keys['btnLeft'] = keys['btnRight'] = false;
+  }
+  function applyMove(clientX, clientY) {
+    // Relatív a leérési ponthoz: jobbra húzol → jobbra, stb.
+    const dx = clientX - originX;
+    const dy = clientY - originY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    clearDirs();
+    if (dist < DEAD) return;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      if (dx > 0) keys['btnRight'] = true;
+      else keys['btnLeft'] = true;
+    } else {
+      if (dy > 0) keys['btnDown'] = true;
+      else keys['btnUp'] = true;
+    }
+  }
+
+  function onMoveDown(e) {
+    if (movePtr !== null) return;
+    e.preventDefault();
+    ensureAudio();
+    movePtr = e.pointerId;
+    originX = e.clientX;
+    originY = e.clientY;
+    try { moveEl.setPointerCapture(e.pointerId); } catch (err) {}
+    clearDirs(); // még nincs elmozdulás
+  }
+  function onMoveMove(e) {
+    if (e.pointerId !== movePtr) return;
+    e.preventDefault();
+    applyMove(e.clientX, e.clientY);
+  }
+  function onMoveUp(e) {
+    if (e.pointerId !== movePtr) return;
+    movePtr = null;
+    clearDirs();
+  }
+  moveEl.addEventListener('pointerdown', onMoveDown);
+  moveEl.addEventListener('pointermove', onMoveMove);
+  moveEl.addEventListener('pointerup', onMoveUp);
+  moveEl.addEventListener('pointercancel', onMoveUp);
+  moveEl.addEventListener('touchstart', e => e.preventDefault(), {passive: false});
+  moveEl.addEventListener('touchmove', e => e.preventDefault(), {passive: false});
+
+  function onFireDown(e) {
+    e.preventDefault();
+    ensureAudio();
+    firePtrs.add(e.pointerId);
+    keys['btnFire'] = true;
+    try { fireEl.setPointerCapture(e.pointerId); } catch (err) {}
+  }
+  function onFireUp(e) {
+    firePtrs.delete(e.pointerId);
+    if (firePtrs.size === 0) keys['btnFire'] = false;
+  }
+  fireEl.addEventListener('pointerdown', onFireDown);
+  fireEl.addEventListener('pointerup', onFireUp);
+  fireEl.addEventListener('pointercancel', onFireUp);
+  fireEl.addEventListener('touchstart', e => e.preventDefault(), {passive: false});
+})();
+
 
 document.getElementById('startBtn').addEventListener('click', startGame);
 document.getElementById('startBtn').addEventListener('touchend', e => {
