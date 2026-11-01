@@ -108,17 +108,15 @@
   #controls.mode-hidden #btnFire {
     display: none !important;
   }
-  #controls.mode-classic #edgeControls {
-    display: none !important;
-  }
+  /* Rejtett zónák: TELJES képernyő (letterbox sávok is) */
   #edgeControls {
     display: none;
     position: absolute;
     inset: 0;
     pointer-events: none;
-    z-index: 22;
+    z-index: 25;
   }
-  #controls.mode-hidden.visible #edgeControls {
+  #edgeControls.show {
     display: block;
   }
   #edgeMove, #edgeFire {
@@ -320,10 +318,6 @@
         <div class="btn" id="btnRight" aria-hidden="true"></div>
       </div>
       <div class="btn" id="btnFire"><canvas id="fireLabel" width="44" height="44"></canvas></div>
-      <div id="edgeControls">
-        <div id="edgeMove"></div>
-        <div id="edgeFire"></div>
-      </div>
     </div>
 
     <div id="overlay">
@@ -338,6 +332,10 @@
       <p id="recordLine" style="margin-top:10px;font-size:clamp(12px,3vw,15px);color:#ffcc00"></p>
       <button class="start-btn" id="startBtn">ÚJ JÁTÉK</button>
     </div>
+  </div>
+  <div id="edgeControls">
+    <div id="edgeMove"></div>
+    <div id="edgeFire"></div>
   </div>
 </div>
 <div id="clearStatsPanel">
@@ -396,6 +394,7 @@ function setControlMode(mode) {
   try { localStorage.setItem(CM_KEY, mode); } catch(e) {}
   applyControlMode(mode);
   updateControlModeUI(mode);
+  updateEdgeControlsVisibility(true);
 }
 function applyControlMode(mode) {
   controlsEl.classList.remove('mode-classic', 'mode-hidden');
@@ -1167,6 +1166,7 @@ function loseLife() {
     dyingTimer = 50;
     gameState = 'dying';
     controlsEl.classList.remove('visible');
+    updateEdgeControlsVisibility(false);
     torpedoes = [];
     enemyTorpedoes = [];
     return;
@@ -1211,6 +1211,7 @@ function finishDying() {
   if (isNewRecord) setHighScore(score);
   updateRecordLine();
   gameState = 'gameover';
+  updateEdgeControlsVisibility(false);
   showGameOverOverlay();
 }
 
@@ -1934,7 +1935,21 @@ function startGame() {
   respawnTimer = 0;
   resetGame();
   gameState = 'playing';
-  if (isTouchDevice()) controlsEl.classList.add('visible');
+  if (isTouchDevice()) {
+    controlsEl.classList.add('visible');
+    updateEdgeControlsVisibility(true);
+  }
+}
+
+function updateEdgeControlsVisibility(playing) {
+  const edge = document.getElementById('edgeControls');
+  if (!edge) return;
+  const show = playing && isTouchDevice() && getControlMode() === 'hidden'
+    && (gameState === 'playing' || gameState === 'refilling' || gameState === 'scoring'
+        || gameState === 'dying' || respawnTimer > 0);
+  // játék közbeni állapotok – title/gameover: rejtve
+  const inGame = playing && gameState !== 'title' && gameState !== 'gameover';
+  edge.classList.toggle('show', inGame && getControlMode() === 'hidden' && isTouchDevice());
 }
 
 // iOS: kijelölés / gesture / nagyító ellen
