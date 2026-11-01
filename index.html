@@ -275,6 +275,31 @@
     font-family: inherit;
     border-radius: 4px;
   }
+  /* Fekvő / alacsony magasság: tömör start képernyő (görgetés nélkül) */
+  @media (orientation: landscape) and (max-height: 500px) {
+    #overlay {
+      padding: 6px 12px;
+      justify-content: center;
+    }
+    #overlay h1 {
+      font-size: clamp(18px, 5vh, 28px);
+      margin-bottom: 2px;
+    }
+    #overlay p {
+      font-size: clamp(10px, 2.8vh, 13px);
+      margin: 2px 0;
+      line-height: 1.25;
+    }
+    #overlay .start-btn {
+      margin-top: 6px;
+      padding: 6px 22px;
+      font-size: clamp(14px, 3.5vh, 18px);
+      border-width: 2px;
+    }
+    #displayModeLine, #controlModeLine, #recordLine {
+      margin-top: 2px !important;
+    }
+  }
   #clearStatsPanel {
     display: none;
     position: fixed;
@@ -1350,13 +1375,15 @@ function updateOxygen() {
   // Csak víz alatt fogy
   if (player.y > SURFACE_Y) {
     oxygen -= 0.0009;
-    if (oxygen < 0.22 && !oxygenLow) oxygenLow = true;
-    // Sziréna ~másodpercenként kétszer
+    // Aktuális szinthez kötve (ne ragadjon be részleges töltés után)
+    oxygenLow = oxygen < 0.22;
     if (oxygenLow && frame % 25 === 0) playAlarm();
     if (oxygen <= 0) {
       oxygen = 0;
       loseLife();
     }
+  } else {
+    oxygenLow = oxygen < 0.22;
   }
 }
 
@@ -1533,6 +1560,7 @@ function update() {
     if (player.y <= SURFACE_Y + 2) {
       const prev = oxygen;
       oxygen = Math.min(1, oxygen + 0.012);
+      oxygenLow = oxygen < 0.22;
       if (protectedRefill) {
         if (oxygen < 1) {
           safe = true;
