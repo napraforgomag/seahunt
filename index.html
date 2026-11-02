@@ -275,7 +275,11 @@
     font-family: inherit;
     border-radius: 4px;
   }
-  /* Fekvő / alacsony magasság: tömör start képernyő (görgetés nélkül) */
+  /* Játék vége: gomb lejjebb (canvas szöveg fölött/között) */
+  #overlay .start-btn.gameover-btn {
+    margin-top: 220px;
+  }
+  /* Fekvő / alacsony magasság: tömör start + záró képernyő */
   @media (orientation: landscape) and (max-height: 500px) {
     #overlay {
       padding: 6px 12px;
@@ -295,6 +299,10 @@
       padding: 6px 22px;
       font-size: clamp(14px, 3.5vh, 18px);
       border-width: 2px;
+    }
+    /* Záró képernyő gomb: ne lógjon le */
+    #overlay .start-btn.gameover-btn {
+      margin-top: 12px;
     }
     #displayModeLine, #controlModeLine, #recordLine {
       margin-top: 2px !important;
@@ -619,10 +627,6 @@ function playOxygenFill(progress) {
     o.connect(g); g.connect(audioCtx.destination);
     o.start(t); o.stop(t + 0.1);
   } catch(e) {}
-}
-function playSurface() {
-  beep(300, 0.12, 'triangle', 0.07);
-  setTimeout(() => beep(200, 0.18, 'triangle', 0.07), 100);
 }
 function playAlarm() {
   beep(880, 0.12, 'square', 0.09);
@@ -1152,7 +1156,6 @@ function doSurface() {
     safe = true;
     protectedRefill = true;
     invuln = 0;
-    playSurface();
     playRescueFanfare();
     // Pálya fade-del ürül (járőrhajó és játékos marad)
     startClearFade();
@@ -1161,7 +1164,6 @@ function doSurface() {
     diversOnBoard = Math.max(0, diversOnBoard - 1);
     oxygenLow = false;
     // már a felszínen van, nincs ugrás
-    playSurface();
     gameState = 'refilling';
     safe = false;
     protectedRefill = false;
@@ -1281,8 +1283,10 @@ function showGameOverOverlay() {
   if (h1) h1.style.display = 'none';
   paras.forEach(p => { p.style.display = 'none'; });
   ov.style.background = 'transparent';
-  document.getElementById('startBtn').textContent = 'ÚJ JÁTÉK';
-  document.getElementById('startBtn').style.marginTop = '220px';
+  const startBtn = document.getElementById('startBtn');
+  startBtn.textContent = 'ÚJ JÁTÉK';
+  startBtn.classList.add('gameover-btn');
+  startBtn.style.marginTop = '';
   const cs = document.getElementById('clearStatsPanel');
   if (cs) cs.classList.remove('show');
   ov.style.display = 'flex';
@@ -1299,7 +1303,9 @@ function showTitleOverlay() {
   }
   paras.forEach(p => { p.style.display = ''; });
   ov.style.background = '#000';
-  document.getElementById('startBtn').style.marginTop = '';
+  const startBtn = document.getElementById('startBtn');
+  startBtn.classList.remove('gameover-btn');
+  startBtn.style.marginTop = '';
   if (paras[0]) paras[0].textContent = 'Activision · Atari 2600 · 1983';
   if (paras[1]) paras[1].innerHTML = 'Mentsd meg a búvárokat!<br>6 búvár számára van hely, figyelj az oxigénre!';
   if (paras[2]) paras[2].textContent = 'Irányítás: WASD / virtuális gombok / SPACE / TŰZ';
@@ -1982,6 +1988,7 @@ document.getElementById('startBtn').addEventListener('touchend', e => {
 function startGame() {
   ensureAudio();
   document.getElementById('overlay').style.display = 'none';
+  document.getElementById('startBtn').classList.remove('gameover-btn');
   const cs = document.getElementById('clearStatsPanel');
   if (cs) cs.classList.remove('show');
   keys[' '] = false;
