@@ -275,9 +275,19 @@
     font-family: inherit;
     border-radius: 4px;
   }
-  /* Játék vége: gomb lejjebb (canvas szöveg fölött/között) */
-  #overlay .start-btn.gameover-btn {
-    margin-top: 220px;
+  #overlay p.gameover-score {
+    font-size: clamp(26px, 7vw, 34px);
+  }
+  #overlay p.pulse-score {
+    color: #ffcc00 !important;
+    animation: scorePulse 0.8s ease-in-out infinite;
+  }
+  #overlay p.gameover-score {
+    font-size: clamp(26px, 7vw, 34px);
+  }
+  @keyframes scorePulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.08); opacity: 0.9; }
   }
   /* Fekvő / alacsony magasság: tömör start + záró képernyő */
   @media (orientation: landscape) and (max-height: 500px) {
@@ -294,15 +304,17 @@
       margin: 2px 0;
       line-height: 1.25;
     }
+    #overlay p.gameover-score {
+      font-size: clamp(18px, 5.5vh, 26px);
+    }
+    #overlay p.gameover-score {
+      font-size: clamp(20px, 5.5vh, 28px);
+    }
     #overlay .start-btn {
       margin-top: 6px;
       padding: 6px 22px;
       font-size: clamp(14px, 3.5vh, 18px);
       border-width: 2px;
-    }
-    /* Záró képernyő gomb: ne lógjon le */
-    #overlay .start-btn.gameover-btn {
-      margin-top: 12px;
     }
     #displayModeLine, #controlModeLine, #recordLine {
       margin-top: 2px !important;
@@ -1274,18 +1286,32 @@ function finishDying() {
   showGameOverOverlay();
 }
 
-// Játék vége: szöveg a canvason (eredeti stílus), csak az ÚJ JÁTÉK gomb HTML
+// Játék vége: ugyanaz a HTML flex elrendezés, mint a start
 function showGameOverOverlay() {
   const ov = document.getElementById('overlay');
   const h1 = ov.querySelector('h1');
   const paras = ov.querySelectorAll('p');
-  // Szövegek elrejtve – a canvas rajzolja őket
-  if (h1) h1.style.display = 'none';
-  paras.forEach(p => { p.style.display = 'none'; });
-  ov.style.background = 'transparent';
+  if (h1) {
+    h1.style.display = '';
+    h1.textContent = 'JÁTÉK VÉGE';
+    h1.style.color = '#f44';
+  }
+  paras.forEach(p => {
+    p.style.display = 'none';
+    p.classList.remove('pulse-score');
+  });
+  // Egy sor: pontszám / új rekord (mint a start középső szövegei)
+  if (paras[0]) {
+    paras[0].style.display = '';
+    paras[0].style.color = isNewRecord ? '#ffcc00' : '#fff';
+    paras[0].textContent = (isNewRecord ? 'ÚJ REKORD: ' : 'Pontszám: ') + score;
+    paras[0].classList.add('gameover-score');
+    if (isNewRecord) paras[0].classList.add('pulse-score');
+  }
+  ov.style.background = '#000';
   const startBtn = document.getElementById('startBtn');
   startBtn.textContent = 'ÚJ JÁTÉK';
-  startBtn.classList.add('gameover-btn');
+  startBtn.classList.remove('gameover-btn');
   startBtn.style.marginTop = '';
   const cs = document.getElementById('clearStatsPanel');
   if (cs) cs.classList.remove('show');
@@ -1301,7 +1327,11 @@ function showTitleOverlay() {
     h1.textContent = 'SEAQUEST';
     h1.style.color = '#ffcc00';
   }
-  paras.forEach(p => { p.style.display = ''; });
+  paras.forEach(p => {
+    p.style.display = '';
+    p.classList.remove('gameover-score', 'pulse-score');
+    p.style.color = '';
+  });
   ov.style.background = '#000';
   const startBtn = document.getElementById('startBtn');
   startBtn.classList.remove('gameover-btn');
@@ -1730,29 +1760,7 @@ function draw() {
     ctx.textAlign = 'left';
   }
 
-  // Játék vége
-  if (gameState === 'gameover') {
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#f44';
-    ctx.font = '18px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('JÁTÉK VÉGE', W / 2, H / 2 - 20);
-    ctx.fillStyle = '#fff';
-    ctx.font = '12px monospace';
-    const label = isNewRecord ? 'ÚJ REKORD' : 'Pontszám';
-    if (isNewRecord) {
-      const pulse = 1 + 0.08 * Math.sin(frame / 8);
-      ctx.save();
-      ctx.translate(W / 2, H / 2 + 10);
-      ctx.scale(pulse, pulse);
-      ctx.fillText(label + ': ' + score, 0, 0);
-      ctx.restore();
-    } else {
-      ctx.fillText(label + ': ' + score, W / 2, H / 2 + 10);
-    }
-    ctx.textAlign = 'left';
-  }
+  // Játék vége: szöveg + gomb az HTML overlay-en (mint a start)
 }
 
 // Fix ~60 FPS + védelem a többszörös ciklus ellen (Coder újratöltés)
