@@ -396,7 +396,7 @@ const ctx = canvas.getContext('2d');
 const W = 320, H = 240;
 const controlsEl = document.getElementById('controls');
 const canvasWrap = document.getElementById('canvasWrap');
-const DM_KEY = 'seaquest_display_mode';
+const DM_KEY = 'aqvadasz_display_mode';
 
 function getDisplayMode() {
   try { return localStorage.getItem(DM_KEY) || 'fill'; } catch(e) { return 'fill'; }
@@ -463,7 +463,7 @@ function updateDisplayModeUI(mode) {
   });
 })();
 
-const CM_KEY = 'seaquest_control_mode';
+const CM_KEY = 'aqvadasz_control_mode';
 function getControlMode() {
   try { return localStorage.getItem(CM_KEY) || 'classic'; } catch(e) { return 'classic'; }
 }
@@ -666,7 +666,7 @@ function playBonus() {
 }
 
 // Lokális rekord
-const HS_KEY = 'seaquest_highscore';
+const HS_KEY = 'aqvadasz_highscore';
 function getHighScore() {
   try { return parseInt(localStorage.getItem(HS_KEY) || '0', 10) || 0; } catch(e) { return 0; }
 }
@@ -1325,7 +1325,7 @@ function showTitleOverlay() {
   const paras = ov.querySelectorAll('p');
   if (h1) {
     h1.style.display = '';
-    h1.textContent = 'SEAQUEST';
+    h1.textContent = 'AQVADÁSZ';
     h1.style.color = '#ffcc00';
     h1.classList.remove('gameover-title');
   }
@@ -1338,9 +1338,8 @@ function showTitleOverlay() {
   const startBtn = document.getElementById('startBtn');
   startBtn.classList.remove('gameover-btn');
   startBtn.style.marginTop = '';
-  if (paras[0]) paras[0].textContent = 'Activision · Atari 2600 · 1983';
-  if (paras[1]) paras[1].innerHTML = 'Mentsd meg a búvárokat!<br>6 búvár számára van hely, figyelj az oxigénre!';
-  if (paras[2]) paras[2].textContent = 'Irányítás: WASD / virtuális gombok / SPACE / TŰZ';
+  if (paras[0]) paras[0].innerHTML = 'Mentsd meg a búvárokat!<br>6 búvár számára van hely, figyelj az oxigénre!';
+  if (paras[1]) paras[1].textContent = 'Irányítás: WASD / virtuális gombok / SPACE / TŰZ';
   updateRecordLine();
   document.getElementById('startBtn').textContent = 'ÚJ JÁTÉK';
   ov.style.display = 'flex';
@@ -1767,13 +1766,13 @@ function draw() {
 
 // Fix ~60 FPS + védelem a többszörös ciklus ellen (Coder újratöltés)
 const FIXED_DT = 1000 / 60;
-window.__seaquestGen = (window.__seaquestGen || 0) + 1;
-const loopGen = window.__seaquestGen;
+window.__aqvadaszGen = (window.__aqvadaszGen || 0) + 1;
+const loopGen = window.__aqvadaszGen;
 let lastTime = 0;
 
 function loop(now) {
   // Régi ciklus leáll, ha a script újra betöltődött
-  if (loopGen !== window.__seaquestGen) return;
+  if (loopGen !== window.__aqvadaszGen) return;
   requestAnimationFrame(loop);
 
   if (!lastTime) { lastTime = now; return; }
@@ -2050,7 +2049,7 @@ if (_c) {
 }
 
 
-// SEAQUEST cím 5 mp nyomva → rejtett „statisztika törlése”
+// AQVADÁSZ cím 5 mp nyomva → rejtett „statisztika törlése”
 (function setupClearStats() {
   const title = document.querySelector('#overlay h1');
   const panel = document.getElementById('clearStatsPanel');
